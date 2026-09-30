@@ -536,19 +536,121 @@ def draw_import_workflow(layout, context):
     right.operator(NextToolOperator.bl_idname, text = "Next Step")
 
 def draw_erase_workflow(layout):
-    row = layout.row()
-    row.label(text = 'Erase Vertices')
-    row = layout.row()
-    box = row.box()
+    layout.label(text="Erase Vertices")
+    
+    box = layout.box()
+    box.label(text="Select unwanted geometry and delete it.", icon='INFO')
+
+    # Selection tool
+    box.label(text="Selection Tool")
+    row = box.row(align=True)
+    row.operator(SetBoxSelectOperator.bl_idname, text="", icon='SELECT_SET')
+    row.operator(SetCircleSelectOperator.bl_idname, text="", icon='MESH_CIRCLE')
+    row.operator(SetLassoSelectOperator.bl_idname, text="", icon='SELECT_DIFFERENCE')
+
+    box.separator()
+
+    # Selection mode
+    box.label(text="Selection Mode")
+    row = box.row(align=True)
+    row.operator(SetSelectionAddOperator.bl_idname, text="Additive", icon='ADD')
+    row.operator(SetSelectionSubtractOperator.bl_idname, text="Subtract", icon='REMOVE')
+
+    box.separator()
+
+    # Selection actions
+    box.label(text="Selection")
+
+    row = box.row(align=True)
+
+    row.operator(SelectNoneOperator.bl_idname, text="Clear", icon='X')
+    box.separator()
+
+    # Delete
+    row = box.row()
+    row.alert = True
+
+    row.operator(
+        DeleteVerticesOperator.bl_idname,
+        text="Delete Selected Vertices",
+        icon='TRASH'
+    )
+
+    layout.separator()
 
     row = layout.row()
     split = row.split(factor=0.5)
+
     left = split.column()
     right = split.column()
+
     left.alert = True
-    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
-    right.emboss = 'NORMAL'
-    right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+    left.operator(
+        CancelOperation.bl_idname,
+        text=CancelOperation.bl_label
+    )
+
+    right.operator(
+        NextToolOperator.bl_idname,
+        text="Next Step"
+    )
+
+class SetBoxSelectOperator(bpy.types.Operator):
+    bl_idname = "creu.box_select"
+    bl_label = "Box Select"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+        return {'FINISHED'}
+
+class SetCircleSelectOperator(bpy.types.Operator):
+    bl_idname = "creu.circle_select"
+    bl_label = "Circle Select"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_circle")
+        return {'FINISHED'}
+
+class SetLassoSelectOperator(bpy.types.Operator):
+    bl_idname = "creu.lasso_select"
+    bl_label = "Lasso Select"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_lasso")
+        return {'FINISHED'}
+
+class SetSelectionAddOperator(bpy.types.Operator):
+    bl_idname = "creu.add_select"
+    bl_label = "Lasso Select"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_lasso")
+        return {'FINISHED'}
+
+class SetSelectionSubtractOperator(bpy.types.Operator):
+    bl_idname = "creu.subtract_select"
+    bl_label = "Lasso Select"
+
+    def execute(self, context):
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_lasso")
+        return {'FINISHED'}
+
+class SelectNoneOperator(bpy.types.Operator):
+    bl_idname = "creu.delete_vertices"
+    bl_label = "Delete Vertices"
+
+    def execute(self, context):
+        bpy.ops.mesh.delete(type='VERT')
+        return {'FINISHED'}
+
+class DeleteVerticesOperator(bpy.types.Operator):
+    bl_idname = "creu.delete_vertices"
+    bl_label = "Delete Vertices"
+
+    def execute(self, context):
+        bpy.ops.mesh.delete(type='VERT')
+        return {'FINISHED'}
 
 def draw_holes_workflow(layout):
     row = layout.row()
@@ -647,6 +749,14 @@ class CREUAddonPanel(bpy.types.Panel):
             draw_export_workflow(layout)
 
 def register():
+    bpy.utils.register_class(SetBoxSelectOperator)
+    bpy.utils.register_class(SetCircleSelectOperator)
+    bpy.utils.register_class(SetLassoSelectOperator)
+    bpy.utils.register_class(SetSelectionAddOperator)
+    bpy.utils.register_class(SetSelectionSubtractOperator)
+    bpy.utils.register_class(SelectNoneOperator)
+    bpy.utils.register_class(DeleteVerticesOperator)
+
     bpy.utils.register_class(StartImportOperator)
     bpy.utils.register_class(StartAlignToOriginOperator)
     bpy.utils.register_class(StartInvertZAxisOperator)
@@ -687,6 +797,14 @@ def unregister():
     bpy.utils.unregister_class(StartSmoothingOperator)
     bpy.utils.unregister_class(StartExportOperator)
     bpy.utils.unregister_class(StartImportOperator)
+
+    bpy.utils.unregister_class(SetBoxSelectOperator)
+    bpy.utils.unregister_class(SetCircleSelectOperator)
+    bpy.utils.unregister_class(SetLassoSelectOperator)
+    bpy.utils.unregister_class(SetSelectionAddOperator)
+    bpy.utils.unregister_class(SetSelectionSubtractOperator)
+    bpy.utils.unregister_class(SelectNoneOperator)
+    bpy.utils.unregister_class(DeleteVerticesOperator)
     
     del bpy.types.Scene.creu
     bpy.utils.unregister_class(CREUProperties)
