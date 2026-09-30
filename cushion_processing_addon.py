@@ -99,7 +99,15 @@ class CREUProperties(bpy.types.PropertyGroup):
             ("SMOOTH", "Smooth", ""),
             ("EXPORT", "Export", "")
         ],
-        default="NONE"
+        default="NONE",
+    )
+    import_scale: bpy.props.FloatProperty(
+        name = "Scale",
+        description = "Scale factor applied to imported meshes",
+        default = 0.001,
+        min = 0.001,
+        soft_max = 1000.0,
+        precision = 3
     )
 
 class StartImportOperator(bpy.types.Operator):
@@ -108,7 +116,7 @@ class StartImportOperator(bpy.types.Operator):
     Imprt an unprocessed scan for processing."""
 
     bl_idname = "creu.start_import"
-    bl_label = "Import Model"
+    bl_label = "Import STL"
 
     def execute(self, context):
         if context.active_object is None:
@@ -349,6 +357,28 @@ class InvertZAxisOperator(bpy.types.Operator):
         bpy.ops.object.transform_apply(location=True, rotation=True)
         return self.execute(context)
 
+class ScaleImportedMeshOperator(bpy.types.Operator):
+    """Scale the selected mesh"""
+    bl_idname = "creu.scale_mesh"
+    bl_label = "Scale"
+
+    def execute(self, context):
+        obj = context.active_object
+        if obj is None:
+            self.report({'WARNING'}, "Please select an object")
+            return {'CANCELLED'}
+
+        scale = context.scene.creu.import_scale
+
+        obj.scale = (
+            obj.scale.x * scale,
+            obj.scale.y * scale,
+            obj.scale.z * scale
+        )
+
+        bpy.ops.object.transform_apply(scale=True)
+        return {'FINISHED'}
+
 class ReduceOperator(bpy.types.Operator):
     """Completes the reduction operation."""
     bl_idname = "creu.reduce_mesh"
@@ -470,11 +500,31 @@ def draw_reduce_workflow(layout):
     right.emboss = 'NORMAL'
     right.operator(NextToolOperator.bl_idname, text = "Next Step")
 
-def draw_import_workflow(layout):
+def draw_import_workflow(layout, context):
     row = layout.row()
     row.label(text = 'Import Mesh')
     row = layout.row()
+    
     box = row.box()
+    box.label(text="Import an STL")
+    box.operator("wm.stl_import", text="Import STL", icon='IMPORT')
+
+    row = layout.row()
+    box = row.box()
+    box.label(text="Mesh Scaling")
+
+    obj = context.active_object
+
+    if obj is not None:
+        box.label(text="Current Dimensions")
+
+        col = box.column(align=True)
+        col.enabled = False
+
+        col.prop(obj, "dimensions", text="")
+
+    box.prop(context.scene.creu, "import_scale", text="Scale Factor")
+    box.operator(ScaleImportedMeshOperator.bl_idname, text=ScaleImportedMeshOperator.bl_label)
 
     row = layout.row()
     split = row.split(factor=0.5)
@@ -580,7 +630,7 @@ class CREUAddonPanel(bpy.types.Panel):
 
         tool = context.scene.creu.active_tool
         if tool == "IMPORT":
-            draw_import_workflow(layout)
+            draw_import_workflow(layout, context)
         elif tool == "ALIGN":
             draw_align_workflow(layout)
         elif tool == "FLIP":
@@ -608,6 +658,7 @@ def register():
 
     bpy.utils.register_class(AlignToOriginOperator)
     bpy.utils.register_class(InvertZAxisOperator)
+    bpy.utils.register_class(ScaleImportedMeshOperator)
 
     bpy.utils.register_class(CancelOperation)
     bpy.utils.register_class(NextToolOperator)
@@ -622,8 +673,9 @@ def unregister():
     bpy.utils.unregister_class(CREUAddonPanel)
 
     bpy.utils.unregister_class(NextToolOperator)
-    bpy.utils.register_class(CancelOperation)
+    bpy.utils.unregister_class(CancelOperation)
 
+    bpy.utils.unregister_class(ScaleImportedMeshOperator)
     bpy.utils.unregister_class(AlignToOriginOperator)
     bpy.utils.unregister_class(InvertZAxisOperator)
 
