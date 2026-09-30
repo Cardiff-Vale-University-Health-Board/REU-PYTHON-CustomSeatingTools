@@ -322,7 +322,6 @@ class AlignToOriginOperator(bpy.types.Operator):
         obj.matrix_world = T @ obj.matrix_world
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.transform_apply(location=True, rotation=True)
-        bpy.ops.creu.start_flip_about_xy()
         return self.execute(context)
 
 class InvertZAxisOperator(bpy.types.Operator):
@@ -348,7 +347,6 @@ class InvertZAxisOperator(bpy.types.Operator):
         obj.matrix_world = T @ obj.matrix_world
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.transform_apply(location=True, rotation=True)
-        bpy.ops.creu.start_mesh_quality()
         return self.execute(context)
 
 class ReduceOperator(bpy.types.Operator):
@@ -368,7 +366,6 @@ class ReduceOperator(bpy.types.Operator):
         # Update this to "bake" the changes, skip step operation should check if the mesh changed.
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.transform_apply(location=True, rotation=True)
-        bpy.ops.creu.start_erasing()
         return self.execute(context)
 
 class NextToolOperator(bpy.types.Operator):
