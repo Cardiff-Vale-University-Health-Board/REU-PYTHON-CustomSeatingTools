@@ -31,6 +31,13 @@ def first_non_match(lst, val):
             return index, value
     return None, None
 
+def set_wireframe_mode(ctx, enable = True):
+    for area in ctx.screen.areas:
+        if area.type == 'VIEW_3D':
+            for space in area.spaces:
+                if space.type == 'VIEW_3D':
+                    space.overlay.show_wireframes = enable
+
 def transformation_matrix_from_vectors(v1, c1, v2, c2):
     """
     :param v1: A 3d "source" vector
@@ -83,6 +90,7 @@ class CREUProperties(bpy.types.PropertyGroup):
     active_tool: bpy.props.EnumProperty(
         items=[
             ("NONE", "None", ""),
+            ("IMPORT", "Import", ""),
             ("ALIGN", "Align", ""),
             ("FLIP", "Flip", ""),
             ("REDUCE", "Reduce", ""),
@@ -94,6 +102,24 @@ class CREUProperties(bpy.types.PropertyGroup):
         default="NONE"
     )
 
+class StartImportOperator(bpy.types.Operator):
+    """Import a scanned seat.
+
+    Imprt an unprocessed scan for processing."""
+
+    bl_idname = "creu.start_import"
+    bl_label = "Import Model"
+
+    def execute(self, context):
+        if context.active_object is None:
+            self.report({'WARNING'}, "Please select an object")
+            return {'CANCELLED'}
+
+        context.scene.creu.active_tool = "IMPORT"
+        set_wireframe_mode(context, False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        return {'FINISHED'}
+
 class StartAlignToOriginOperator(bpy.types.Operator):
     """Align the scan to the XY plane using three selected vertices.
     
@@ -102,7 +128,7 @@ class StartAlignToOriginOperator(bpy.types.Operator):
     XY plane and centred at the origin."""
 
     bl_idname = "creu.start_align"
-    bl_label = "1. Align To Origin Tool"
+    bl_label = "Align To Origin Tool"
 
     def execute(self, context):
         if context.active_object is None:
@@ -110,7 +136,9 @@ class StartAlignToOriginOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         context.scene.creu.active_tool = "ALIGN"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
         return {'FINISHED'}
 
 class StartInvertZAxisOperator(bpy.types.Operator):
@@ -120,7 +148,7 @@ class StartInvertZAxisOperator(bpy.types.Operator):
     the seating surface faces upward."""
 
     bl_idname = "creu.start_flip_about_xy"
-    bl_label = "2. Flip Model about XY Plane"
+    bl_label = "Flip Model about XY Plane"
 
     def execute(self, context):
         if context.active_object is None:
@@ -128,6 +156,7 @@ class StartInvertZAxisOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         context.scene.creu.active_tool = "FLIP"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='OBJECT')
         return {'FINISHED'}
 
@@ -139,33 +168,56 @@ class StartStandardiseMeshQualityOperator(bpy.types.Operator):
     triangles present."""
 
     bl_idname = "creu.start_mesh_quality"
-    bl_label = "3. Standardise Mesh Resolution"
+    bl_label = "Standardise Mesh Resolution"
 
     def execute(self, context):
         if context.active_object is None:
             self.report({'WARNING'}, "Please select an object")
             return {'CANCELLED'}
 
-        context.scene.creu.active_tool = "FLIP"
+        context.scene.creu.active_tool = "REDUCE"
+        set_wireframe_mode(context, True)
         bpy.ops.object.mode_set(mode='SCULPT')
+
+        # Select Sculpt Draw tool
+        bpy.ops.wm.tool_set_by_id(name="builtin_brush.Draw")
+
+        tool_settings = context.tool_settings
+
+        # Set brush strength to 0
+        if tool_settings.sculpt.brush:
+            tool_settings.sculpt.brush.strength = 0.0
+
+        # Enable Dyntopo
+        if not context.sculpt_object.use_dynamic_topology_sculpting:
+            bpy.ops.sculpt.dynamic_topology_toggle()
+
+        # Constant Detail mode
+        tool_settings.sculpt.detail_type_method = 'CONSTANT'
+
+        # Detail Resolution
+        tool_settings.sculpt.constant_detail_resolution = 50
+
         return {'FINISHED'}
 
-class StartEraseMeshOperator(bpy.types.Operator):
+class StartEraseVerticesOperator(bpy.types.Operator):
     """Delete selected vertices and connected geometry.
 
     Use this tool to remove unwanted scan artefacts,
     isolated geometry, or areas outside the required seating surface."""
 
     bl_idname = "creu.start_erasing"
-    bl_label = "4. Erase Vertices"
+    bl_label = "Erase Vertices"
 
     def execute(self, context):
         if context.active_object is None:
             self.report({'WARNING'}, "Please select an object")
             return {'CANCELLED'}
 
-        context.scene.creu.active_tool = "FLIP"
+        context.scene.creu.active_tool = "ERASE"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.wm.tool_set_by_id(name = "builtin.select_circle")
         return {'FINISHED'}
 
 class StartHoleFillingOperator(bpy.types.Operator):
@@ -175,7 +227,7 @@ class StartHoleFillingOperator(bpy.types.Operator):
     contiguous surface."""
 
     bl_idname = "creu.start_hole_filling"
-    bl_label = "5. Fill Holes"
+    bl_label = "Fill Holes"
 
     def execute(self, context):
         if context.active_object is None:
@@ -183,7 +235,9 @@ class StartHoleFillingOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         context.scene.creu.active_tool = "HOLES"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.wm.tool_set_by_id(name = "builtin.select_box")
         return {'FINISHED'}
 
 class StartSmoothingOperator(bpy.types.Operator):
@@ -193,7 +247,7 @@ class StartSmoothingOperator(bpy.types.Operator):
     the overall shape of the cushion."""
 
     bl_idname = "creu.start_smooth"
-    bl_label = "6. Remove Creases (Smoothing)"
+    bl_label = "Remove Creases (Smoothing)"
 
     def execute(self, context):
         if context.active_object is None:
@@ -201,6 +255,7 @@ class StartSmoothingOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         context.scene.creu.active_tool = "SMOOTH"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='SCULPT')
         return {'FINISHED'}
 
@@ -211,26 +266,30 @@ class StartExportOperator(bpy.types.Operator):
     machining, or archival purposes."""
 
     bl_idname = "creu.start_export"
-    bl_label = "7. Export Model"
+    bl_label = "Export Model"
 
     def execute(self, context):
         if context.active_object is None:
             self.report({'WARNING'}, "Please select an object")
             return {'CANCELLED'}
 
-        context.scene.creu.active_tool = "SMOOTH"
+        context.scene.creu.active_tool = "EXPORT"
+        set_wireframe_mode(context, False)
         bpy.ops.object.mode_set(mode='OBJECT')
         return {'FINISHED'}
 
-class CancelAlignToOriginOperator(bpy.types.Operator):
-    bl_idname = "creu.cancel_align"
+class CancelOperation(bpy.types.Operator):
+    """Deselect the current tool."""
+    bl_idname = "creu.cancel_operation"
     bl_label = "Cancel"
 
     def execute(self, context):
+        set_wireframe_mode(context, False)
+
         context.scene.creu.active_tool = "NONE"
         bpy.ops.object.mode_set(mode='OBJECT')
         return {'FINISHED'}
-        
+
 class AlignToOriginOperator(bpy.types.Operator):
     """Aligns an object to the XY plane based on the three currently selected vertices"""
     bl_idname = "creu.align_to_origin"
@@ -263,46 +322,9 @@ class AlignToOriginOperator(bpy.types.Operator):
         obj.matrix_world = T @ obj.matrix_world
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.transform_apply(location=True, rotation=True)
-        context.scene.creu.active_tool = "FLIP"
+        bpy.ops.creu.start_flip_about_xy()
         return self.execute(context)
 
-class NextToolOperator(bpy.types.Operator):
-    bl_idname = "creu.next_tool"
-    bl_label = "Skip Step"
-
-    def execute(self, context):
-        current = context.scene.creu.active_tool
-
-        if current == "ALIGN":
-            context.scene.creu.active_tool = "FLIP"
-
-        elif current == "FLIP":
-            context.scene.creu.active_tool = "STANDARDISE"
-
-        elif current == "STANDARDISE":
-            context.scene.creu.active_tool = "ERASE"
-
-        elif current == "ERASE":
-            context.scene.creu.active_tool = "FILL"
-
-        elif current == "FILL":
-            context.scene.creu.active_tool = "SMOOTH"
-
-        elif current == "SMOOTH":
-            context.scene.creu.active_tool = "EXPORT"
-
-        return {'FINISHED'}
-        
-
-class CancelInvertZAxisOperator(bpy.types.Operator):
-    bl_idname = "creu.cancel_flip_about_xy"
-    bl_label = "Cancel"
-
-    def execute(self, context):
-        context.scene.creu.active_tool = "NONE"
-        bpy.ops.object.mode_set(mode='OBJECT')
-        return {'FINISHED'}
-   
 class InvertZAxisOperator(bpy.types.Operator):
     """Flips an object about the XY plane"""
     bl_idname = "creu.flip_about_xy"
@@ -326,8 +348,55 @@ class InvertZAxisOperator(bpy.types.Operator):
         obj.matrix_world = T @ obj.matrix_world
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.transform_apply(location=True, rotation=True)
-        context.scene.creu.active_tool = "NONE"
-        return self.execute(context) 
+        bpy.ops.creu.start_mesh_quality()
+        return self.execute(context)
+
+class ReduceOperator(bpy.types.Operator):
+    """Completes the reduction operation."""
+    bl_idname = "creu.reduce_mesh"
+    bl_label = "Done"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        # Does nothing as tool is selected in start operator !!!
+        # Update this to "bake" the changes, skip step operation should check if the mesh changed.
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.transform_apply(location=True, rotation=True)
+        bpy.ops.creu.start_erasing()
+        return self.execute(context)
+
+class NextToolOperator(bpy.types.Operator):
+    """Advance to the next tool."""
+    bl_idname = "creu.next_tool"
+    bl_label = "Skip Step"
+
+    def execute(self, context):
+        current = context.scene.creu.active_tool
+
+        if current == "IMPORT":
+            bpy.ops.creu.start_import()
+        elif current == "ALIGN":
+            bpy.ops.creu.align_to_origin()
+        elif current == "FLIP":
+            bpy.ops.creu.start_mesh_quality()
+        elif current == "REDUCE":
+            bpy.ops.creu.start_erasing()
+        elif current == "ERASE":
+            bpy.ops.creu.start_erasing()
+        elif current == "FILL":
+            bpy.ops.creu.start_hole_filling()
+        elif current == "SMOOTH":
+            bpy.ops.creu.start_smooth()
+        elif current == "EXPORT":
+            bpy.ops.creu.creu.start_export()
+
+        return {'FINISHED'}
 
 def draw_align_workflow(layout):
     row = layout.row()
@@ -355,7 +424,7 @@ def draw_align_workflow(layout):
     left = split.column()
     right = split.column()
     left.alert = True
-    left.operator(CancelAlignToOriginOperator.bl_idname, text = CancelAlignToOriginOperator.bl_label)
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
     right.enabled = align_enabled
     right.emboss = 'NORMAL'
     right.operator(AlignToOriginOperator.bl_idname, text = AlignToOriginOperator.bl_label)
@@ -378,7 +447,7 @@ def draw_flip_workflow(layout):
     left = split.column()
     right = split.column()
     left.alert = True
-    left.operator(CancelInvertZAxisOperator.bl_idname, text = CancelInvertZAxisOperator.bl_label)
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
     right.emboss = 'NORMAL'
     right.operator(InvertZAxisOperator.bl_idname, text = InvertZAxisOperator.bl_label)
 
@@ -387,6 +456,24 @@ def draw_flip_workflow(layout):
     left = split.column()
     right = split.column()
     right.operator(NextToolOperator.bl_idname, text = NextToolOperator.bl_label)
+
+def draw_reduce_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Standardise Mesh')
+    row = layout.row()
+    box = row.box()
+    box.label(text=f"Use the brush to paint over the mesh to standardise the resolution of the triangles in the mesh.")
+    box.label(text=f"Press [ to make the brush smaller.")
+    box.label(text=f"Press ] to make the brush larger.")
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    left.alert = True
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
+    right.emboss = 'NORMAL'
+    right.operator(NextToolOperator.bl_idname, text = "Next Step")
 
 class CREUAddonPanel(bpy.types.Panel):
     bl_label = "Cushion Processing Tools"
@@ -399,55 +486,34 @@ class CREUAddonPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         
+        row = layout.row()
+        row.label(text="Process 3D cushion scans ready for")
+        row = layout.row()
+        row.label(text="design and manufacturing workflows.")
+
+        TOOLS = [
+            (StartImportOperator, 'IMPORT'),
+            (StartAlignToOriginOperator, 'ORIENTATION_GLOBAL'),
+            (StartInvertZAxisOperator, 'FILE_REFRESH'),
+            (StartStandardiseMeshQualityOperator, 'MOD_REMESH'),
+            (StartEraseVerticesOperator, 'TRASH'),
+            (StartHoleFillingOperator, 'MESH_GRID'),
+            (StartSmoothingOperator, 'MOD_SMOOTH'),
+            (StartExportOperator, 'EXPORT'),
+        ]
+
         grid = layout.grid_flow(row_major = True, columns = 4)
-
-        grid.operator(
-            StartAlignToOriginOperator.bl_idname,
-            text = "",
-            icon='ORIENTATION_GLOBAL'
-        )
-
-        grid.operator(
-            StartInvertZAxisOperator.bl_idname,
-            text = "",
-            icon='ARROW_LEFTRIGHT'
-        )
-
-        grid.operator(
-            StartStandardiseMeshQualityOperator.bl_idname,
-            text = "",
-            icon='MOD_REMESH'
-        )
-
-        grid.operator(
-            StartEraseMeshOperator.bl_idname,
-            text = "",
-            icon='TRASH'
-        )
-
-        grid.operator(
-            StartHoleFillingOperator.bl_idname,
-            text = "",
-            icon='MESH_GRID'
-        )
-
-        grid.operator(
-            StartSmoothingOperator.bl_idname,
-            text = "",
-            icon='MOD_SMOOTH'
-        )
-
-        grid.operator(
-            StartExportOperator.bl_idname,
-            text = "",
-            icon='EXPORT'
-        )
+        for operator, icon in TOOLS:
+            grid.operator(
+                operator.bl_idname,
+                text = "",
+                icon = icon
+            )
 
         tool = context.scene.creu.active_tool
-
-        # if tool == "NONE":
-            # Do nothing
-        if tool == "ALIGN":
+        if tool == "IMPORT":
+            draw_import_workflow(layout)
+        elif tool == "ALIGN":
             draw_align_workflow(layout)
         elif tool == "FLIP":
             draw_flip_workflow(layout)
@@ -463,20 +529,19 @@ class CREUAddonPanel(bpy.types.Panel):
             draw_export_workflow(layout)
 
 def register():
+    bpy.utils.register_class(StartImportOperator)
     bpy.utils.register_class(StartAlignToOriginOperator)
     bpy.utils.register_class(StartInvertZAxisOperator)
     bpy.utils.register_class(StartStandardiseMeshQualityOperator)
-    bpy.utils.register_class(StartEraseMeshOperator)
+    bpy.utils.register_class(StartEraseVerticesOperator)
     bpy.utils.register_class(StartHoleFillingOperator)
     bpy.utils.register_class(StartSmoothingOperator)
     bpy.utils.register_class(StartExportOperator)
 
-    bpy.utils.register_class(CancelAlignToOriginOperator)
     bpy.utils.register_class(AlignToOriginOperator)
-
-    bpy.utils.register_class(CancelInvertZAxisOperator)
     bpy.utils.register_class(InvertZAxisOperator)
 
+    bpy.utils.register_class(CancelOperation)
     bpy.utils.register_class(NextToolOperator)
 
     bpy.utils.register_class(CREUAddonPanel)
@@ -489,19 +554,19 @@ def unregister():
     bpy.utils.unregister_class(CREUAddonPanel)
 
     bpy.utils.unregister_class(NextToolOperator)
+    bpy.utils.register_class(CancelOperation)
 
     bpy.utils.unregister_class(AlignToOriginOperator)
-    bpy.utils.unregister_class(CancelAlignToOriginOperator)
     bpy.utils.unregister_class(InvertZAxisOperator)
-    bpy.utils.unregister_class(CancelInvertZAxisOperator)
 
     bpy.utils.unregister_class(StartAlignToOriginOperator)
     bpy.utils.unregister_class(StartInvertZAxisOperator)
     bpy.utils.unregister_class(StartStandardiseMeshQualityOperator)
-    bpy.utils.unregister_class(StartEraseMeshOperator)
+    bpy.utils.unregister_class(StartEraseVerticesOperator)
     bpy.utils.unregister_class(StartHoleFillingOperator)
     bpy.utils.unregister_class(StartSmoothingOperator)
     bpy.utils.unregister_class(StartExportOperator)
+    bpy.utils.unregister_class(StartImportOperator)
     
     del bpy.types.Scene.creu
     bpy.utils.unregister_class(CREUProperties)
