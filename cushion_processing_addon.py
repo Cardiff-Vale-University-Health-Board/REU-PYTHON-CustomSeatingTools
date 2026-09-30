@@ -371,27 +371,25 @@ class ReduceOperator(bpy.types.Operator):
 class NextToolOperator(bpy.types.Operator):
     """Advance to the next tool."""
     bl_idname = "creu.next_tool"
-    bl_label = "Skip Step"
+    bl_label = "Next Step"
 
     def execute(self, context):
         current = context.scene.creu.active_tool
 
         if current == "IMPORT":
-            bpy.ops.creu.start_import()
+            bpy.ops.creu.start_align()
         elif current == "ALIGN":
-            bpy.ops.creu.align_to_origin()
+            bpy.ops.creu.start_flip_about_xy()
         elif current == "FLIP":
             bpy.ops.creu.start_mesh_quality()
         elif current == "REDUCE":
             bpy.ops.creu.start_erasing()
         elif current == "ERASE":
-            bpy.ops.creu.start_erasing()
-        elif current == "FILL":
             bpy.ops.creu.start_hole_filling()
-        elif current == "SMOOTH":
+        elif current == "HOLES":
             bpy.ops.creu.start_smooth()
-        elif current == "EXPORT":
-            bpy.ops.creu.creu.start_export()
+        elif current == "SMOOTH":
+            bpy.ops.creu.start_export()
 
         return {'FINISHED'}
 
@@ -471,6 +469,79 @@ def draw_reduce_workflow(layout):
     left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
     right.emboss = 'NORMAL'
     right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+def draw_import_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Import Mesh')
+    row = layout.row()
+    box = row.box()
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    left.alert = True
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
+    right.emboss = 'NORMAL'
+    right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+def draw_erase_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Erase Vertices')
+    row = layout.row()
+    box = row.box()
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    left.alert = True
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
+    right.emboss = 'NORMAL'
+    right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+def draw_holes_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Fill Holes')
+    row = layout.row()
+    box = row.box()
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    left.alert = True
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
+    right.emboss = 'NORMAL'
+    right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+def draw_smooth_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Smooth Surface')
+    row = layout.row()
+    box = row.box()
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    left.alert = True
+    left.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
+    right.emboss = 'NORMAL'
+    right.operator(NextToolOperator.bl_idname, text = "Next Step")
+
+def draw_export_workflow(layout):
+    row = layout.row()
+    row.label(text = 'Export Mesh')
+    row = layout.row()
+    box = row.box()
+
+    row = layout.row()
+    split = row.split(factor=0.5)
+    left = split.column()
+    right = split.column()
+    right.alert = True
+    right.operator(CancelOperation.bl_idname, text = CancelOperation.bl_label)
 
 class CREUAddonPanel(bpy.types.Panel):
     bl_label = "Cushion Processing Tools"
